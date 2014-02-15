@@ -1,1 +1,3 @@
-obj-m := lkm.o
+obj-m := krdb.o
+ccflags-y := -I$(PWD)/include
+krdb-y := krdb.mod.o

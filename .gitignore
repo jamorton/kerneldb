@@ -1,4 +1,4 @@
-/build/
+/build/*
 !/build/Kbuild
 git ad
 /ref
