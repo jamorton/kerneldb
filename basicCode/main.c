@@ -32,6 +32,8 @@ int put(dataBase *db, char *key, void * val, size_t dataSize){
 
 int get(dataBase *db, char *key, void ** data){
 	fileData *temp = (fileData *)ht_get(db->hashTable, key);
+	if (temp == NULL)
+		return 0;
 	*data = temp->firstBlock;
 	return 1;
 }
@@ -40,6 +42,7 @@ int delete(dataBase *db, char *key){
 	fileData *temp = (fileData *)ht_get(db->hashTable, key);
 	db->size -= temp->size;
 	ht_remove(db->hashTable, key);
+	//free(temp); don't think it's needed, think it's taken care of by remove
 }
 
 size_t value_size(dataBase *db, char *key){
