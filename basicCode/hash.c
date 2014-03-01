@@ -53,6 +53,21 @@ void ht_destroy(HT *ht)
   ht = NULL;
 }
 
+size_t ht_get_size(HT * ht, char * key){
+  if (!ht) return -1;
+  unsigned long idx = _hash(key) % ht->size;
+
+  struct ht_node *n = ht->tbl[idx];
+  while (n) {
+    if (strncmp(key, n->key, HT_MAX_KEYLEN) == 0)
+      return n->size;
+
+    n = n->nxt;
+  }
+
+  return -1;
+}
+
 void *ht_get(HT *ht, char *key)
 {
   if (!ht) return NULL;
@@ -70,7 +85,7 @@ void *ht_get(HT *ht, char *key)
   return NULL;
 }
 
-void ht_put(HT *ht, char *key, void *val)
+void ht_put(HT *ht, char *key, void *val, size_t size)
 {
   if (!ht) return;
 
@@ -78,6 +93,7 @@ void ht_put(HT *ht, char *key, void *val)
 
   struct ht_node *n_new = calloc(1, sizeof(struct ht_node));
   n_new->val = val;
+  n_new->size = size;
   n_new->key = calloc(1, strnlen(key, HT_MAX_KEYLEN) + 1);
   strcpy(n_new->key, key);
   

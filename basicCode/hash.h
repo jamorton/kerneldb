@@ -19,9 +19,12 @@
 
 struct ht_node {
   void *val;
+  size_t size;
   char *key;
   struct ht_node *nxt;
 };
+
+
 
 typedef struct ht {
   struct ht_node **tbl;
@@ -31,5 +34,6 @@ typedef struct ht {
 HT *ht_create(int size);                    /* allocate hashtable mem */
 void ht_destroy(HT *ht);                    /* free hashtable mem */
 void *ht_get(HT *ht, char *key);            /* retrieve entry */
-void ht_put(HT *ht, char *key, void *val);  /* store entry */
+void ht_put(HT *ht, char *key, void *val, size_t size);  /* store entry */
 void ht_remove(HT *ht, char *key);          /* remove entry */
+size_t ht_get_size(HT* ht, char *key);
