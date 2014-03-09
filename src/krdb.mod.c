@@ -5,10 +5,37 @@
 
 #include "kr_common.h"
 
+#include "internal.h"
+
 static struct sock * kr_nlsock = NULL;
 
 static void kr_nl_recv(struct sk_buff *skb) {
-    printk(KERN_INFO "krdb: recv\n");
+    struct nlmsghdr * nlh = (struct nlmsghdr *)skb->data;
+    const char * data = nlmsg_data(nlh);
+    int size = nlmsg_len(nlh);
+    int pid = nlh->nlmsg_pid;
+
+    switch (*data) {
+
+    case KR_COMMAND_OPEN:;
+        const char * path = &data[1];
+        break;
+
+    case KR_COMMAND_CLOSE:;
+        break;
+
+    case KR_COMMAND_SET:;
+        break;
+
+    case KR_COMMAND_GET:;
+        break;
+
+    case KR_COMMAND_NOP:;
+    default:
+        break;
+
+    }
+
 }
 
 static struct netlink_kernel_cfg kr_nl_cfg = {
