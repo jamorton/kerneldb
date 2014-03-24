@@ -5,7 +5,7 @@
 
 static KrDb databases[MAX_DB];
 
-KrDb * kr_db_open(const char * path) {
+int kr_db_open(KrDb ** db, const char * path) {
 
     KrDb * empty = NULL;
 
@@ -15,7 +15,8 @@ KrDb * kr_db_open(const char * path) {
             empty = &databases[i];
         else if (strcmp(databases[i].path, path) == 0) {
             databases[i].refcnt++;
-            return &databases[i];
+            *db = &databases[i];
+            return 0;
         }
     }
 
@@ -26,20 +27,22 @@ KrDb * kr_db_open(const char * path) {
     /* no existing db found... make a new one */
     strcpy(empty->path, path);
     empty->refcnt = 1;
-    return empty;
+    *db = empty;
+    return 0;
 }
 
-void kr_db_close (KrDb * db)
+int kr_db_close (KrDb * db)
 {
     db->refcnt--;
+    return 0;
 }
 
-int kr_db_put  (KrDb * db, KrSlice key, KrSlice val)
+int kr_db_put (KrDb * db, KrSlice key, KrSlice val)
 {
     return 0;
 }
 
-int kr_db_get  (KrDb * db, KrSlice * out)
+int kr_db_get (KrDb * db, KrSlice * out)
 {
     return 0;
 }
