@@ -4,45 +4,22 @@
 
 #include "internal.h"
 
-void conn_setup(KrClient * cl)
+int conn_create(KrClient * cl)
 {
-    cl->sock = socket(PF_NETLINK, SOCK_RAW, KR_NETLINK_USER);
-    if (cl->sock < 0)
-        ;
-
-    memset(&cl->src_addr, 0, sizeof(cl->src_addr));
-    memset(&cl->dst_addr, 0, sizeof(cl->dst_addr));
-
-    cl->src_addr.nl_family = AF_NETLINK;
-    cl->src_addr.nl_pid = getpid();
-    cl->src_addr.nl_groups = 0;
-
-    bind(cl->sock, (struct sockaddr *)&cl->src_addr, sizeof(cl->src_addr));
-
-    cl->dst_addr.nl_family = AF_NETLINK;
-    cl->dst_addr.nl_pid = 0;
-    cl->dst_addr.nl_groups = 0;
-
-    /*
-    cl->iov.iov_base = (void *)nlh;
-
-    cl->msg.msg_name = (void *)&cl->dst_addr;
-    cl->msg.msg_namelen = sizeof(cl->dst_addr);
-    cl->msg.msg_iov = &cl->iov;
-    cl->msg.msg_iovlen = 1;
-    */
+    cl->sock = nl_socket_alloc();
+    nl_connect(cl->sock, KR_NETLINK_USER);
+    return 0;
 }
 
-void conn_teardown(KrClient * cl)
+int conn_destroy(KrClient * cl)
 {
-    close(cl->sock);
+    nl_close(cl->sock);
+    return 0;
 }
 
-/*
-
-#define MAX_PAYLOAD 1024
-
-struct nlmsghdr * nlh;
-struct msghdr msg;
-
-*/
+int conn_send (KrClient* cl, int cmd, void* data, size_t len)
+{
+    int flags = (cmd == KR_COMMAND_GET) ? NLM_F_REQUEST : 0;
+    nl_send_simple(cl->sock, cmd, flags, data, len);
+    return 0;
+}

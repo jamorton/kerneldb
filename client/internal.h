@@ -11,21 +11,15 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <sys/socket.h>
-#include <linux/netlink.h>
+#include <netlink/netlink.h>
 
 struct KrClient {
     char * dev;
-
-    /* netlink connection related */
-    int sock;
-    struct sockaddr_nl src_addr;
-    struct sockaddr_nl dst_addr;
-    struct iovec iov;
-    struct msghdr msg;
+    struct nl_sock* sock;
 };
 
-void conn_setup    (KrClient * cl);
-void conn_teardown (KrClient * cl);
+int conn_create  (KrClient* cl);
+int conn_destroy (KrClient* cl);
+int conn_send    (KrClient* cl, int cmd, void* data, size_t len);
 
 #endif

@@ -6,9 +6,9 @@
 MODULE_SOURCES = src/krdb.mod.c
 MODULE_OUT = bin/krdb.ko
 
-CLIENT_SOURCES = client/client.c client/conn.c client/main.c
+CLIENT_SOURCES = client/conn.c client/client.c client/main.c
 CLIENT_OUT = bin/krcl
-CLIENT_CFLAGS = -Wall --std=c99 -Iinclude
+CLIENT_CFLAGS = -Wall --std=c99 -Iinclude $(shell pkg-config --cflags --libs libnl-3.0)
 
 #-----------------------------------------------------------
 # Build
@@ -29,9 +29,9 @@ $(MODULE_OUT): $(MODULE_BUILD_SOURCES)
 	mkdir -p bin
 	cp -f build/krdb.ko $@
 
-$(CLIENT_OUT): $(MODULE_SOURCES)
+$(CLIENT_OUT): $(CLIENT_SOURCES)
 	mkdir -p bin
-	gcc -o $@ $(CLIENT_CFLAGS) $(CLIENT_SOURCES)
+	gcc -o $@ $^ $(CLIENT_CFLAGS)
 
 clean:
 	$(KBUILD_CMD) clean
