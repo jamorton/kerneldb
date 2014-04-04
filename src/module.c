@@ -8,7 +8,6 @@
 #include "user.h"
 #include "db.h"
 
-
 static struct sock * kr_nlsock = NULL;
 
 static void kr_nl_recv(struct sk_buff *skb) {
@@ -33,7 +32,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
 
     case KR_COMMAND_CLOSE: {
         KrUser * user = kr_user_get(pid);
-        printk(KERN_INFO "KR_COMMAND_CLOSE");
+        printk(KERN_INFO "KR_COMMAND_CLOSE\n");
         if (user->db == NULL)
             ; /* no db to close... */
         kr_db_close(user->db);
@@ -67,9 +66,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
     case KR_COMMAND_NOP:
     default:
         break;
-
     }
-
 }
 
 static struct netlink_kernel_cfg kr_nl_cfg = {
@@ -100,5 +97,5 @@ static void __exit kr_module_exit(void)
 module_init(kr_module_init)
 module_exit(kr_module_exit)
 
-MODULE_LICENSE("Dual MIT/GPL");
+MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("UW-Madison");

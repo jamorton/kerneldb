@@ -9,7 +9,9 @@ KrClient * kr_open(const char * dev)
     client->dev = malloc(len + 1);
     strcpy(client->dev, dev);
 
+    printf("Creating connection...\n");
     conn_create(client);
+    printf("Opening db...\n");
     conn_send(client, KR_COMMAND_OPEN, client->dev, len);
 
     return client;

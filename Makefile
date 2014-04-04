@@ -3,7 +3,7 @@
 # Configuration
 #-----------------------------------------------------------
 
-MODULE_SOURCES = src/krdb.mod.c
+MODULE_SOURCES = src/module.c src/user.c src/db.c src/io.c
 MODULE_OUT = bin/krdb.ko
 
 CLIENT_SOURCES = client/conn.c client/client.c client/main.c
@@ -21,10 +21,8 @@ MODULE_BUILD_SOURCES = $(patsubst src/%.c,build/%.c,$(MODULE_SOURCES))
 
 all: $(MODULE_OUT) $(CLIENT_OUT)
 
-$(MODULE_BUILD_SOURCES): $(MODULE_SOURCES)
-	cp -f $< $@
-
-$(MODULE_OUT): $(MODULE_BUILD_SOURCES)
+$(MODULE_OUT): $(MODULE_SOURCES)
+	cp -f $(MODULE_SOURCES) build/
 	$(KBUILD_CMD) modules
 	mkdir -p bin
 	cp -f build/krdb.ko $@
@@ -35,6 +33,6 @@ $(CLIENT_OUT): $(CLIENT_SOURCES)
 
 clean:
 	$(KBUILD_CMD) clean
-	rm -f $(MODULE_OUT) $(CLIENT_OUT)
+	rm -f $(MODULE_OUT) $(CLIENT_OUT) $(MODULE_BUILD_SOURCES)
 
 .PHONY: clean
