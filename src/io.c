@@ -165,35 +165,23 @@ KrBuf* kr_buf_get(KrDevice* dev, kr_bufid id, bool read)
         return buf;
     }
 
-    printk(KERN_INFO "one\n");
-
     if (dev->bufcnt >= dev->maxbufs)
         buf = kr_buf_evict(dev);
     else {
-        printk(KERN_INFO "two\n");
         buf = kzalloc(sizeof(KrBuf), GFP_KERNEL);
-        printk(KERN_INFO "three\n");
         buf->page = alloc_pages(GFP_KERNEL, KR_PAGE_ALLOC_ORDER);
-        printk(KERN_INFO "four\n");
         buf->data = page_address(buf->page);
-        printk(KERN_INFO "five\n");
     }
 
-    printk(KERN_INFO "six\n");
     buf->id = id;
     buf->pincnt = 1;
     buf->dev = dev;
     buf->bucket = kr_bufhash_bucket(dev, id);
-    printk(KERN_INFO "seven\n");
 
     kr_bufhash_insert(buf);
 
-    printk(KERN_INFO "eight\n");
-
     if (read)
         issue_bio_sync(dev, buf->page, KR_BUF_SECTOR(buf), READ);
-
-    printk(KERN_INFO "nine\n");
 
     return buf;
 }
