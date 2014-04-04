@@ -238,6 +238,7 @@ void kr_device_release(KrDevice* dev)
     }
 
     blkdev_put(dev->bdev, FMODE_READ | FMODE_WRITE);
+    kfree(dev->bufhash);
     kfree(dev);
 }
 
