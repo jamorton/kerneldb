@@ -5,7 +5,7 @@
 
   * src/ - kernel module source files
     - src/module.c - kernel module entry point, netlink communication
-    - src/user.c - keeps track of clients actively communicating with the kerel module
+    - src/user.c - keeps track of clients actively communicating with the kernel module
     - src/db.c - storage implementation. top-level put/get are implemented here
     - src/io.c - low-level block I/O system, and buffer manager
   * client/ - user-space client library
