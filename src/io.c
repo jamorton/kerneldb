@@ -125,8 +125,10 @@ static int issue_bio_async(KrDevice* dev, struct page* page, int sector, int rw)
 
 static __always_inline void kr_buf_maybe_write(KrBuf* buf)
 {
-    if (kr_buf_isdirty(buf))
+    if (kr_buf_isdirty(buf)) {
         issue_bio_async(buf->dev, buf->page, KR_BUF_SECTOR(buf), WRITE_FLUSH_FUA);
+        buf->flags &= ~KR_BUF_DIRTY; /* clear dirty bit */
+    }
 }
 
 /**
