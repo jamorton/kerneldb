@@ -18,6 +18,8 @@
 
 ## Build/Run
 
+  Note: on Ubuntu, you need the libnl-3-dev package.
+
   1. Run `make` to build the kernel module and client library (must be on linux)
   2. Run `sudo insmod bin/krdb.ko` to start the module
   3. Run `sudo rmmod krdb` to remove it. (Or restart)
