@@ -36,7 +36,10 @@ int kr_db_open(KrDb ** db, const char * path) {
 
 int kr_db_close (KrDb * db)
 {
-    db->refcnt--;
+    if (--db->refcnt == 0) {
+        kr_device_release(db->dev);
+    }
+
     return 0;
 }
 

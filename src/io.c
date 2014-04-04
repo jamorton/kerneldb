@@ -73,7 +73,6 @@ KrDevice* kr_device_create (const char* path, size_t cachesz)
     dev->bdev = block_dev;
     dev->maxbufs = cachesz;
     dev->bufhash = kcalloc(dev->maxbufs, sizeof(KrBuf*), GFP_KERNEL);
-    dev->free = NULL;
 
     return dev;
 }

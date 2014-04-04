@@ -23,7 +23,6 @@ struct KrBuf;
 typedef struct KrDevice {
     size_t bufcnt;
     size_t maxbufs;
-    struct KrBuf* free; /* KrBuf freelist */
     struct KrBuf** bufhash; /* maps buf IDs (disk locations) to KrBufs */
 
     /* linux implementation */
@@ -85,7 +84,7 @@ typedef struct KrBuf {
     KrDevice* dev;
     struct KrBuf* next; /* for linked lists */
     struct KrBuf* prev;
-    void* data; /* pointer to the buffer's data, BUFFER_SIZE bytesl long */
+    void* data; /* pointer to the buffer's data, BUFFER_SIZE bytes long */
     u64 bucket;
 
     // linux impl. fields
