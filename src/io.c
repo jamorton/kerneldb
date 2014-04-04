@@ -150,6 +150,27 @@ static int issue_bio_async(KrDevice* dev, struct page* page, int sector, int rw)
  *-----------------------------------------------------------------------------
  */
 
+static __always_inline void kr_buf_maybe_write(KrBuf* buf)
+{
+    if (kr_buf_isdirty(buf))
+        issue_bio_async(buf->dev, buf->page, KR_BUF_SECTOR(buf), WRITE_FLUSH_FUA);
+}
+
+void kr_device_flush(KrDevice* dev)
+{
+    int i;
+    KrBuf* buf;
+
+    for (i = 0; i < dev->maxbufs; i++) {
+        buf = dev->bufhash[i];
+        while (buf) {
+            kr_buf_maybe_write(buf);
+            buf = buf->next;
+        }
+    }
+
+}
+
 /**
  * Find an unpinned buf suitable for replacement
  * For now, just evicts the first available buffer it sees.
@@ -172,12 +193,8 @@ static KrBuf* kr_buf_evict(KrDevice* dev)
     return NULL;
 
  found:
-
     kr_bufhash_del(buf);
-
-    if (kr_buf_isdirty(buf))
-        issue_bio_async(dev, buf->page, KR_BUF_SECTOR(buf), WRITE_FLUSH_FUA);
-
+    kr_buf_maybe_write(buf);
     return buf;
 }
 

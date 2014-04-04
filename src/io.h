@@ -44,7 +44,14 @@ KrDevice*  kr_device_create   (const char* path, size_t cachesz);
  *     Frees this KrDevice instance.
  */
 
-void       kr_device_release  (KrDevice* dev);
+void kr_device_release (KrDevice* dev);
+
+/**
+ * kr_device_flush
+ *
+ *     Write all dirty in-memory buffers to disk.
+ */
+void kr_device_flush(KrDevice* dev);
 
 /*-----------------------------------------------------------------------------
  * Buffer Manager
