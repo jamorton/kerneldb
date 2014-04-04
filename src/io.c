@@ -51,39 +51,6 @@ static void kr_bufhash_del(KrBuf* buf)
 }
 
 /*-----------------------------------------------------------------------------
- * KrDevice
- *
- * Implementation
- *-----------------------------------------------------------------------------
- */
-
-KrDevice* kr_device_create (const char* path, size_t cachesz)
-{
-    struct block_device* block_dev;
-    KrDevice* dev;
-
-    // linux block layer function to get a struct block_device pointer
-    // from a string path
-    block_dev = blkdev_get_by_path(path, FMODE_READ | FMODE_WRITE, NULL);
-    if (!block_dev)
-        return NULL;
-
-    // allocate the KrDevice
-    dev = (KrDevice*)kmalloc(sizeof(KrDevice), GFP_KERNEL);
-    dev->bdev = block_dev;
-    dev->maxbufs = cachesz;
-    dev->bufhash = kcalloc(dev->maxbufs, sizeof(KrBuf*), GFP_KERNEL);
-
-    return dev;
-}
-
-void kr_release_device(KrDevice* dev)
-{
-    blkdev_put(dev->bdev, FMODE_READ | FMODE_WRITE);
-    kfree(dev);
-}
-
-/*-----------------------------------------------------------------------------
  * I/O Requests
  *
  * Functions to issue Linux bio requests for reading and writing disk blocks.
@@ -110,7 +77,7 @@ static struct bio* kr_create_bio(KrDevice* dev, struct page* page, int sector)
  * Callback given to bio requests, it will be called when the request completes.
  * See issue_bio_sync below.
  */
-static __always_inline void finish_bio_sync(struct bio *bio, int err)
+static void finish_bio_sync(struct bio *bio, int err)
 {
     complete((struct completion*)bio->bi_private);
 }
@@ -136,11 +103,16 @@ static int issue_bio_sync(KrDevice* dev, struct page* page, int sector, int rw)
     return 0;
 }
 
+static void finish_bio_async(struct bio* bio, int err)
+{
+    bio_put(bio);
+}
+
 static int issue_bio_async(KrDevice* dev, struct page* page, int sector, int rw)
 {
     struct bio* bio = kr_create_bio(dev, page, sector);
+    bio->bi_end_io = finish_bio_async;
     submit_bio(rw, bio);
-    bio_put(bio);
     return 0;
 }
 
@@ -154,21 +126,6 @@ static __always_inline void kr_buf_maybe_write(KrBuf* buf)
 {
     if (kr_buf_isdirty(buf))
         issue_bio_async(buf->dev, buf->page, KR_BUF_SECTOR(buf), WRITE_FLUSH_FUA);
-}
-
-void kr_device_flush(KrDevice* dev)
-{
-    int i;
-    KrBuf* buf;
-
-    for (i = 0; i < dev->maxbufs; i++) {
-        buf = dev->bufhash[i];
-        while (buf) {
-            kr_buf_maybe_write(buf);
-            buf = buf->next;
-        }
-    }
-
 }
 
 /**
@@ -208,23 +165,35 @@ KrBuf* kr_buf_get(KrDevice* dev, kr_bufid id, bool read)
         return buf;
     }
 
+    printk(KERN_INFO "one\n");
+
     if (dev->bufcnt >= dev->maxbufs)
         buf = kr_buf_evict(dev);
     else {
+        printk(KERN_INFO "two\n");
         buf = kzalloc(sizeof(KrBuf), GFP_KERNEL);
+        printk(KERN_INFO "three\n");
         buf->page = alloc_pages(GFP_KERNEL, KR_PAGE_ALLOC_ORDER);
+        printk(KERN_INFO "four\n");
         buf->data = page_address(buf->page);
+        printk(KERN_INFO "five\n");
     }
 
+    printk(KERN_INFO "six\n");
     buf->id = id;
     buf->pincnt = 1;
     buf->dev = dev;
     buf->bucket = kr_bufhash_bucket(dev, id);
+    printk(KERN_INFO "seven\n");
 
     kr_bufhash_insert(buf);
 
+    printk(KERN_INFO "eight\n");
+
     if (read)
         issue_bio_sync(dev, buf->page, KR_BUF_SECTOR(buf), READ);
+
+    printk(KERN_INFO "nine\n");
 
     return buf;
 }
@@ -233,4 +202,68 @@ void kr_buf_free(KrBuf* buf)
 {
     __free_pages(buf->page, KR_PAGE_ALLOC_ORDER);
     kfree(buf);
+}
+
+
+
+/*-----------------------------------------------------------------------------
+ * KrDevice
+ *
+ * Implementation
+ *-----------------------------------------------------------------------------
+ */
+
+KrDevice* kr_device_create (const char* path, size_t cachesz)
+{
+    struct block_device* block_dev;
+    KrDevice* dev;
+
+    // linux block layer function to get a struct block_device pointer
+    // from a string path
+    block_dev = blkdev_get_by_path(path, FMODE_READ | FMODE_WRITE, NULL);
+    if (!block_dev)
+        return NULL;
+
+    // allocate the KrDevice
+    dev = (KrDevice*)kmalloc(sizeof(KrDevice), GFP_KERNEL);
+    dev->bufcnt = 0;
+    dev->bdev = block_dev;
+    dev->maxbufs = cachesz;
+    dev->bufhash = kcalloc(dev->maxbufs, sizeof(KrBuf*), GFP_KERNEL);
+
+    return dev;
+}
+
+void kr_device_release(KrDevice* dev)
+{
+    int i;
+    KrBuf* buf;
+
+    /* write dirty bufs, and free all allocated bufs */
+    for (i = 0; i < dev->maxbufs; i++) {
+        buf = dev->bufhash[i];
+        while (buf) {
+            kr_buf_maybe_write(buf);
+            kr_buf_free(buf);
+            buf = buf->next;
+        }
+    }
+
+    blkdev_put(dev->bdev, FMODE_READ | FMODE_WRITE);
+    kfree(dev);
+}
+
+void kr_device_flush(KrDevice* dev)
+{
+    int i;
+    KrBuf* buf;
+
+    for (i = 0; i < dev->maxbufs; i++) {
+        buf = dev->bufhash[i];
+        while (buf) {
+            kr_buf_maybe_write(buf);
+            buf = buf->next;
+        }
+    }
+
 }
