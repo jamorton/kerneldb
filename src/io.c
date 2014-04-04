@@ -5,6 +5,7 @@
 #include <linux/buffer_head.h>
 #include <linux/bio.h>
 #include <linux/log2.h>
+#include <linux/hash.h>
 
 /*-----------------------------------------------------------------------------
  * Buffer Hash
@@ -254,5 +255,4 @@ void kr_device_flush(KrDevice* dev)
             buf = buf->next;
         }
     }
-
 }
