@@ -5,11 +5,16 @@
 #include "internal.h"
 
 struct KrDevice;
+struct KrBuf;
+struct KrSuperBlock;
 
 typedef struct KrDb {
     char path[255];
     int refcnt;
     struct KrDevice* dev;
+
+    struct KrBuf* sb_buf;
+    struct KrSuperBlock* sb; /* address owned by the sb_buf */
 } KrDb;
 
 int kr_db_open  (KrDb ** dp, const char * path);

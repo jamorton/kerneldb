@@ -183,8 +183,9 @@ KrBuf* kr_buf_get(KrDevice* dev, kr_bufid id, bool read)
 
     kr_bufhash_insert(buf);
 
-    if (read)
+    if (read) {
         issue_bio_sync(dev, buf->page, KR_BUF_SECTOR(buf), READ);
+    }
 
     return buf;
 }

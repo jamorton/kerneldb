@@ -12,7 +12,7 @@ static struct sock * kr_nlsock = NULL;
 
 static void kr_nl_recv(struct sk_buff *skb) {
     struct nlmsghdr * nlh = (struct nlmsghdr *)skb->data;
-    dataptr data = nlmsg_data(nlh);
+    kr_dataptr data = nlmsg_data(nlh);
     //int size = nlmsg_len(nlh);
     int pid = nlh->nlmsg_pid;
 
@@ -43,7 +43,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
         KrUser * user = kr_user_get(pid);
 
         KrSlice key = { *(uint64_t *)data, data + 8 };
-        dataptr valstart = data + 8 + key.size;
+        kr_dataptr valstart = data + 8 + key.size;
         KrSlice val = { *(uint64_t *)valstart, valstart + 8 };
 
         printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, val %llu bytes\n",  (int)key.size, key.data, val.size);

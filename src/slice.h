@@ -4,7 +4,7 @@
 
 typedef struct KrSlice {
     uint64_t size;
-    dataptr data;
+    kr_dataptr data;
 } KrSlice;
 
 #endif
