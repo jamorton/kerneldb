@@ -69,7 +69,7 @@ void kr_device_flush(KrDevice* dev);
 /**
  * So as above, the buffer size is then PAGE_SIZE * 2^order
  */
-#define KR_BUFFER_SIZE (PAGE_SIZE * (1 << KR_PAGE_ALLOC_ORDER))
+#define KR_BLOCK_SIZE (PAGE_SIZE * (1 << KR_PAGE_ALLOC_ORDER))
 
 typedef u64 kr_block;
 

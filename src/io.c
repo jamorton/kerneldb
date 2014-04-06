@@ -59,7 +59,7 @@ static void kr_bufhash_del(KrBuf* buf)
  *-----------------------------------------------------------------------------
  */
 
-#define KR_BUF_SECTOR(b) ((b->block)*(KR_BUFFER_SIZE/512))
+#define KR_BUF_SECTOR(b) ((b->block)*(KR_BLOCK_SIZE/512))
 
 static struct bio* kr_create_bio(KrDevice* dev, struct page* page, int sector)
 {
@@ -69,7 +69,7 @@ static struct bio* kr_create_bio(KrDevice* dev, struct page* page, int sector)
     bio->bi_bdev = dev->bdev;
     bio->bi_sector = sector;
 
-    bio_add_page(bio, page, KR_BUFFER_SIZE, 0);
+    bio_add_page(bio, page, KR_BLOCK_SIZE, 0);
 
     return bio;
 }
