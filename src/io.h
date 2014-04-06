@@ -16,7 +16,6 @@
  *-----------------------------------------------------------------------------
  */
 
-// forward declarations
 struct block_device;
 struct KrBuf;
 
@@ -56,7 +55,7 @@ void kr_device_flush(KrDevice* dev);
 /*-----------------------------------------------------------------------------
  * Buffer Manager
  *
- * THE base unit of storage used by the rest of the system. Internally uses
+ * The base unit of storage used by the rest of the system. Internally uses
  * low-level kernel bio requests to issue reads and writes.
  *-----------------------------------------------------------------------------
  */
@@ -92,11 +91,11 @@ typedef struct KrBuf {
     u32 bucket;
     u32 unused; /* not used yet (padding) */
     KrDevice* dev;
-    struct KrBuf* next; /* for linked lists */
+    struct KrBuf* next; /* buf hash linked lists */
     struct KrBuf* prev;
     void* data; /* pointer to the buffer's data, BUFFER_SIZE bytes long */
 
-    // linux impl. fields
+    /* linux implementation */
     struct page* page;
 } KrBuf;
 

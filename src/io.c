@@ -65,7 +65,7 @@ static struct bio* kr_create_bio(KrDevice* dev, struct page* page, int sector)
 {
     struct bio* bio = bio_alloc(GFP_NOIO, 1);
 
-    // setup bio.
+    /* setup bio. */
     bio->bi_bdev = dev->bdev;
     bio->bi_sector = sector;
 
@@ -212,13 +212,12 @@ KrDevice* kr_device_create (const char* path, size_t cachesz)
     struct block_device* block_dev;
     KrDevice* dev;
 
-    // linux block layer function to get a struct block_device pointer
-    // from a string path
+    /* get a struct block_device pointer from a string path */
     block_dev = blkdev_get_by_path(path, FMODE_READ | FMODE_WRITE, NULL);
     if (!block_dev)
         return NULL;
 
-    // allocate the KrDevice
+    /* allocate the KrDevice */
     dev = (KrDevice*)kmalloc(sizeof(KrDevice), GFP_KERNEL);
     dev->bufcnt = 0;
     dev->bdev = block_dev;
