@@ -9,11 +9,12 @@ static KrDb databases[MAX_DB];
 /* Superblock */
 /*-----------------------------------------------------------*/
 
-#define KR_SUPERBLOCK_MAGIC 0xFFEEDDCCBBAA9988ull
+#define KR_SUPERBLOCK_MAGIC 0xFEEDBEEF8BADF00Dull
 
 typedef struct KrSuperBlock {
     u64 magic;
     u64 opened;
+    u64 num_entries;
 } KrSuperBlock;
 
 /**
@@ -32,8 +33,8 @@ static void kr_db_init(KrDb* db)
         /* Initialize new DB */
         db->sb->magic = KR_SUPERBLOCK_MAGIC;
         db->sb->opened = 0;
+        db->sb->num_entries = 0;
     }
-    printk(KERN_INFO "kr_db_init: %llu opens\n", db->sb->opened);
     kr_buf_markdirty(db->sb_buf);
 }
 
@@ -63,6 +64,7 @@ int kr_db_open(KrDb** db, const char * path) {
     *db = empty;
 
     kr_db_init(*db);
+    printk(KERN_INFO "Opened DB %s (%llu entries)\n", path, (*db)->sb->num_entries);
 
     return 0;
 }

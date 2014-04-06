@@ -15,16 +15,16 @@
  *-----------------------------------------------------------------------------
  */
 
-static __always_inline u64 kr_bufhash_bucket(KrDevice* dev, kr_bufid id)
+static __always_inline u32 kr_bufhash_bucket(KrDevice* dev, kr_block block)
 {
-    return hash_64(id, 64) % dev->maxbufs;
+    return hash_64(block, 32) % dev->maxbufs;
 }
 
-static KrBuf* kr_bufhash_find(KrDevice* dev, kr_bufid id)
+static KrBuf* kr_bufhash_find(KrDevice* dev, kr_block block)
 {
-    KrBuf* buf = dev->bufhash[kr_bufhash_bucket(dev, id)];
+    KrBuf* buf = dev->bufhash[kr_bufhash_bucket(dev, block)];
     while (buf) {
-        if (buf->id == id)
+        if (buf->block == block)
             return buf;
         buf = buf->next;
     }
@@ -59,7 +59,7 @@ static void kr_bufhash_del(KrBuf* buf)
  *-----------------------------------------------------------------------------
  */
 
-#define KR_BUF_SECTOR(b) ((b->id)*(KR_BUFFER_SIZE/512))
+#define KR_BUF_SECTOR(b) ((b->block)*(KR_BUFFER_SIZE/512))
 
 static struct bio* kr_create_bio(KrDevice* dev, struct page* page, int sector)
 {
@@ -158,9 +158,9 @@ static KrBuf* kr_buf_evict(KrDevice* dev)
     return buf;
 }
 
-KrBuf* kr_buf_get(KrDevice* dev, kr_bufid id, bool read)
+KrBuf* kr_buf_get(KrDevice* dev, kr_block loc, bool read)
 {
-    KrBuf* buf = kr_bufhash_find(dev, id);
+    KrBuf* buf = kr_bufhash_find(dev, loc);
 
     /* it's in the cache already: just increase the pincount */
     if (buf) {
@@ -168,18 +168,20 @@ KrBuf* kr_buf_get(KrDevice* dev, kr_bufid id, bool read)
         return buf;
     }
 
-    if (dev->bufcnt >= dev->maxbufs)
+    if (dev->bufcnt >= dev->maxbufs) {
+        /* cache is already at max size: must evict another unused buffer */
         buf = kr_buf_evict(dev);
-    else {
+    } else {
+        /* if the cache isn't at max size yet, allocate a new buffer */
         buf = kzalloc(sizeof(KrBuf), GFP_KERNEL);
         buf->page = alloc_pages(GFP_KERNEL, KR_PAGE_ALLOC_ORDER);
         buf->data = page_address(buf->page);
     }
 
-    buf->id = id;
+    buf->block = loc;
     buf->pincnt = 1;
     buf->dev = dev;
-    buf->bucket = kr_bufhash_bucket(dev, id);
+    buf->bucket = kr_bufhash_bucket(dev, loc);
 
     kr_bufhash_insert(buf);
 
