@@ -41,13 +41,12 @@ static void kr_nl_recv(struct sk_buff *skb) {
 
     case KR_COMMAND_PUT: {
         KrUser * user = kr_user_get(pid);
-
         KrSlice key = { *(uint64_t *)data, data + 8 };
         kr_dataptr valstart = data + 8 + key.size;
         KrSlice val = { *(uint64_t *)valstart, valstart + 8 };
-
-        printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, val %llu bytes\n",  (int)key.size, key.data, val.size);
-
+        printk(KERN_INFO "KR_COMMAND_PUT: key %.*s\n, keysz: %llu\n",  (int)key.size, key.data, key.size);
+	printk(KERN_INFO "KR_COMMAND_PUT: val %.*s\n, valsz: %llu\n", (int) val.size, val.data, val.size);
+        //printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, keysz %llu bytes =>  val %.*s, valsz %llu\n", key.data, (int)key.size, val.data, val.size);
         kr_db_put(user->db, key, val);
         break;
     }
@@ -56,10 +55,10 @@ static void kr_nl_recv(struct sk_buff *skb) {
         KrUser * user = kr_user_get(pid);
 
         KrSlice val, key = { *(uint64_t *)data, data + 8 };
+        printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n keysz %llu\n",  (int)key.size, key.data);
         kr_db_get(user->db, key, &val);
         // todo: send result
 
-        printk(KERN_INFO "KR_COMMAND_GET: %.*s\n",  (int)key.size, key.data);
         break;
     }
 

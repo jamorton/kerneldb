@@ -7,8 +7,8 @@ void kr_bench()
 {
     KrDb* db;
     kr_db_open(&db, "/dev/sdb");
-
-
+    
+    
 
 
 
