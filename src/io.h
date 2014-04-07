@@ -16,7 +16,6 @@
  *-----------------------------------------------------------------------------
  */
 
-// forward declarations
 struct block_device;
 struct KrBuf;
 
@@ -56,7 +55,7 @@ void kr_device_flush(KrDevice* dev);
 /*-----------------------------------------------------------------------------
  * Buffer Manager
  *
- * THE base unit of storage used by the rest of the system. Internally uses
+ * The base unit of storage used by the rest of the system. Internally uses
  * low-level kernel bio requests to issue reads and writes.
  *-----------------------------------------------------------------------------
  */
@@ -72,7 +71,7 @@ void kr_device_flush(KrDevice* dev);
  */
 #define KR_BUFFER_SIZE (PAGE_SIZE * (1 << KR_PAGE_ALLOC_ORDER))
 
-typedef u64 kr_bufid;
+typedef u64 kr_block;
 
 /**
  * Buffer flags
@@ -82,23 +81,25 @@ typedef u64 kr_bufid;
 /**
  * KrBuf struct
  *
- *     holds information about active buffers
+ *     Holds information about active buffers
+ *     Keep this 64 bytes long: exactly one cache line
  */
 typedef struct KrBuf {
-    kr_bufid id;
+    kr_block block;
     u32 flags;
     u32 pincnt; /* pin count */
+    u32 bucket;
+    u32 unused; /* not used yet (padding) */
     KrDevice* dev;
-    struct KrBuf* next; /* for linked lists */
+    struct KrBuf* next; /* buf hash linked lists */
     struct KrBuf* prev;
     void* data; /* pointer to the buffer's data, BUFFER_SIZE bytes long */
-    u64 bucket;
 
-    // linux impl. fields
+    /* linux implementation */
     struct page* page;
 } KrBuf;
 
-KrBuf* kr_buf_get(KrDevice*, kr_bufid, bool);
+KrBuf* kr_buf_get(KrDevice*, kr_block, bool);
 
 /**
  * kr_buf_alloc
@@ -106,7 +107,7 @@ KrBuf* kr_buf_get(KrDevice*, kr_bufid, bool);
  *     Get a buffer an unused location in memory. Will never read the existing
  *     data at that location into the buffer from disk.
  */
-static __always_inline KrBuf* kr_buf_alloc(KrDevice* dev, kr_bufid loc)
+static __always_inline KrBuf* kr_buf_alloc(KrDevice* dev, kr_block loc)
 {
     return kr_buf_get(dev, loc, false);
 }
@@ -117,7 +118,7 @@ static __always_inline KrBuf* kr_buf_alloc(KrDevice* dev, kr_bufid loc)
  *     Get a buffer for a location on disk. May block to read in the data
  *     from disk if it isn't in the cache.
  */
-static __always_inline KrBuf* kr_buf_read(KrDevice* dev, kr_bufid loc)
+static __always_inline KrBuf* kr_buf_read(KrDevice* dev, kr_block loc)
 {
     return kr_buf_get(dev, loc, true);
 }
