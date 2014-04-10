@@ -26,6 +26,12 @@ typedef struct KrDevice {
 
     /* linux implementation */
     struct block_device* bdev;
+
+    /* stat collection */
+    uint n_evict;
+    uint n_read;
+    uint n_hit;
+    uint n_dbl;
 } KrDevice;
 
 /**
@@ -64,7 +70,7 @@ void kr_device_flush(KrDevice* dev);
  * Linux allocates pages in powers of two only, so we specify how many pages
  * constitute a single buffer in the form 2^order
  */
-#define KR_PAGE_ALLOC_ORDER 2 /* 2 pages per buffer (8912 bytes) */
+#define KR_PAGE_ALLOC_ORDER 0 /* 2 pages per buffer (8912 bytes) */
 
 /**
  * So as above, the buffer size is then PAGE_SIZE * 2^order

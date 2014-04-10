@@ -1,4 +1,4 @@
 
 obj-m := krdb.o
 ccflags-y := -I$(PWD)/include -I$(PWD)/src
-krdb-y := module.o user.o db.o io.o
+krdb-y := module.o user.o db.o io.o bucket.o bench.o

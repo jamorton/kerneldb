@@ -17,7 +17,8 @@
 
 static __always_inline u32 kr_bufhash_bucket(KrDevice* dev, kr_block block)
 {
-    return hash_64(block, 32) % dev->maxbufs;
+    return block % dev->maxbufs;
+    //return hash_64(block, 32) % dev->maxbufs;
 }
 
 static KrBuf* kr_bufhash_find(KrDevice* dev, kr_block block)
@@ -33,21 +34,24 @@ static KrBuf* kr_bufhash_find(KrDevice* dev, kr_block block)
 
 static void kr_bufhash_insert(KrBuf* buf)
 {
-    KrBuf** bufptr = &buf->dev->bufhash[buf->bucket];
-    if (*bufptr)
-        (*bufptr)->prev = buf;
-    buf->next = *bufptr;
-    *bufptr = buf;
+    KrBuf* first = buf->dev->bufhash[buf->bucket];
+    if (first)
+        first->prev = buf;
+    buf->next = first;
+    buf->dev->bufhash[buf->bucket] = buf;
 }
 
 static void kr_bufhash_del(KrBuf* buf)
 {
+    KrBuf** bucket = &buf->dev->bufhash[buf->bucket];
     if (buf->prev)
-        buf->prev = buf->next;
+        buf->prev->next = buf->next;
     if (buf->next)
-        buf->next = buf->prev;
-    else if (buf->prev == NULL) /* no next, no prev: length 1 list */
-        buf->dev->bufhash[buf->bucket] = NULL;
+        buf->next->prev = buf->prev;
+
+    if (*bucket == buf) /* this buf is the first one in this bucket */
+        *bucket = buf->next;
+
     buf->prev = buf->next = NULL;
 }
 
@@ -64,6 +68,9 @@ static void kr_bufhash_del(KrBuf* buf)
 static struct bio* kr_create_bio(KrDevice* dev, struct page* page, int sector)
 {
     struct bio* bio = bio_alloc(GFP_NOIO, 1);
+
+    if (!bio)
+        return NULL;
 
     /* setup bio. */
     bio->bi_bdev = dev->bdev;
@@ -92,6 +99,8 @@ static int issue_bio_sync(KrDevice* dev, struct page* page, int sector, int rw)
 {
     struct completion event;
     struct bio* bio = kr_create_bio(dev, page, sector);
+    if (!bio)
+        return -KR_ENOMEM;
 
     bio->bi_end_io = finish_bio_sync;
     bio->bi_private = &event;
@@ -112,6 +121,10 @@ static void finish_bio_async(struct bio* bio, int err)
 static int issue_bio_async(KrDevice* dev, struct page* page, int sector, int rw)
 {
     struct bio* bio = kr_create_bio(dev, page, sector);
+
+    if (!bio)
+        return -KR_ENOMEM;
+
     bio->bi_end_io = finish_bio_async;
     submit_bio(rw, bio);
     return 0;
@@ -138,7 +151,7 @@ static __always_inline void kr_buf_maybe_write(KrBuf* buf)
 static KrBuf* kr_buf_evict(KrDevice* dev)
 {
     size_t i;
-    KrBuf* buf;
+    KrBuf* buf = NULL;
 
     for (i = 0; i < dev->maxbufs; i++) {
         buf = dev->bufhash[i];
@@ -164,16 +177,22 @@ KrBuf* kr_buf_get(KrDevice* dev, kr_block loc, bool read)
 
     /* it's in the cache already: just increase the pincount */
     if (buf) {
+        dev->n_hit++;
         buf->pincnt++;
         return buf;
     }
 
     if (dev->bufcnt >= dev->maxbufs) {
+        dev->n_evict++;
         /* cache is already at max size: must evict another unused buffer */
         buf = kr_buf_evict(dev);
+        if (!buf)
+            return NULL;
     } else {
         /* if the cache isn't at max size yet, allocate a new buffer */
         buf = kzalloc(sizeof(KrBuf), GFP_KERNEL);
+        if (!buf)
+            return NULL;
         buf->page = alloc_pages(GFP_KERNEL, KR_PAGE_ALLOC_ORDER);
         buf->data = page_address(buf->page);
     }
@@ -185,7 +204,10 @@ KrBuf* kr_buf_get(KrDevice* dev, kr_block loc, bool read)
 
     kr_bufhash_insert(buf);
 
+    dev->bufcnt++;
+
     if (read) {
+        dev->n_read++;
         issue_bio_sync(dev, buf->page, KR_BUF_SECTOR(buf), READ);
     }
 
@@ -197,8 +219,6 @@ void kr_buf_free(KrBuf* buf)
     __free_pages(buf->page, KR_PAGE_ALLOC_ORDER);
     kfree(buf);
 }
-
-
 
 /*-----------------------------------------------------------------------------
  * KrDevice
@@ -224,21 +244,28 @@ KrDevice* kr_device_create (const char* path, size_t cachesz)
     dev->maxbufs = cachesz;
     dev->bufhash = kcalloc(dev->maxbufs, sizeof(KrBuf*), GFP_KERNEL);
 
+    dev->n_evict = dev->n_read = dev->n_hit = dev->n_dbl = 0;
+
     return dev;
 }
 
 void kr_device_release(KrDevice* dev)
 {
     int i;
-    KrBuf* buf;
+    KrBuf *buf, *tmp;
+
+    printk(KERN_INFO "evict %u read %u hit %u dbl %u\n",
+        dev->n_evict, dev->n_read, dev->n_hit, dev->n_dbl);
 
     /* write dirty bufs, and free all allocated bufs */
     for (i = 0; i < dev->maxbufs; i++) {
         buf = dev->bufhash[i];
         while (buf) {
+            /* we're freeing buf and can't access buf->next after we do */
+            tmp = buf->next;
             kr_buf_maybe_write(buf);
             kr_buf_free(buf);
-            buf = buf->next;
+            buf = tmp;
         }
     }
 

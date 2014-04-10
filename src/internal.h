@@ -4,11 +4,16 @@
 
 #include <linux/kernel.h>
 #include <linux/string.h>
+#include <linux/module.h>
 
 typedef const char * kr_dataptr;
 
-#include "slice.h"
+typedef u32 kr_hash;
 
-void kr_bench(void);
+#include "slice.h"
+#include "error.h"
+
+struct KrDb;
+void kr_bench(struct KrDb* db);
 
 #endif

@@ -3,7 +3,7 @@
 # Configuration
 #-----------------------------------------------------------
 
-MODULE_SOURCES = src/module.c src/user.c src/db.c src/io.c
+MODULE_SOURCES = src/module.c src/user.c src/db.c src/io.c src/bucket.c src/bench.c
 MODULE_OUT = bin/krdb.ko
 
 CLIENT_SOURCES = client/conn.c client/client.c client/main.c

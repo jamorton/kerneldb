@@ -16,8 +16,6 @@ static void kr_nl_recv(struct sk_buff *skb) {
     //int size = nlmsg_len(nlh);
     int pid = nlh->nlmsg_pid;
 
-    printk(KERN_INFO "received data from client %d\n", pid);
-
     switch (nlh->nlmsg_type) {
 
     case KR_COMMAND_OPEN: {
@@ -44,9 +42,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
         KrSlice key = { *(uint64_t *)data, data + 8 };
         kr_dataptr valstart = data + 8 + key.size;
         KrSlice val = { *(uint64_t *)valstart, valstart + 8 };
-        printk(KERN_INFO "KR_COMMAND_PUT: key %.*s\n, keysz: %llu\n",  (int)key.size, key.data, key.size);
-	printk(KERN_INFO "KR_COMMAND_PUT: val %.*s\n, valsz: %llu\n", (int) val.size, val.data, val.size);
-        //printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, keysz %llu bytes =>  val %.*s, valsz %llu\n", key.data, (int)key.size, val.data, val.size);
+        printk(KERN_INFO "KR_COMMAND_PUT: key %.*s\n, data sz: %llu\n",  (int)key.size, key.data, val.size);
         kr_db_put(user->db, key, val);
         break;
     }
@@ -55,11 +51,19 @@ static void kr_nl_recv(struct sk_buff *skb) {
         KrUser * user = kr_user_get(pid);
 
         KrSlice val, key = { *(uint64_t *)data, data + 8 };
-        printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n keysz %llu\n",  (int)key.size, key.data);
+        printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n",  (int)key.size, key.data);
         kr_db_get(user->db, key, &val);
         // todo: send result
 
         break;
+    }
+
+    case KR_COMMAND_BENCH: {
+        KrUser * user = kr_user_get(pid);
+
+        printk(KERN_INFO "Running kr_bench(\"%s\")...\n", user->db->path);
+        kr_bench(user->db);
+        printk(KERN_INFO "...done.\n");
     }
 
     case KR_COMMAND_NOP:
