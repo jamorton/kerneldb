@@ -21,34 +21,29 @@ typedef struct __attribute__((packed)) KrTupleInfo {
     u16 vlen; /* value length */
 } KrTupleInfo;
 
-#define b_upper(hdr)                                            \
-    ((hdr)->count * sizeof(KrTupleInfo) + sizeof(KrBucketHdr));
-
-static __always_inline KrTupleInfo* kr_tuple_info_array(KrBuf* buf)
+static __always_inline KrTupleInfo* kr_tuple_info_array(char* data)
 {
-    return (KrTupleInfo*)((char *)buf->data + sizeof(KrBucketHdr));
+    return (KrTupleInfo*)(data + sizeof(KrBucketHdr));
 }
 
-static __always_inline uint kr_bucket_freespace(KrBuf* buf)
+static __always_inline uint kr_bucket_freespace(char* data)
 {
-    KrBucketHdr* hdr = (KrBucketHdr*)buf->data;
+    KrBucketHdr* hdr = (KrBucketHdr*)data;
     return hdr->data_off - hdr->count * sizeof(KrTupleInfo) - sizeof(KrBucketHdr);
 }
 
-void kr_bucket_init(KrBuf* buf)
+void kr_bucket_init(char* data)
 {
-    KrBucketHdr* hdr = (KrBucketHdr*)buf->data;
+    KrBucketHdr* hdr = (KrBucketHdr*)data;
     hdr->data_off = KR_BUCKET_SIZE;
     hdr->count = 0;
     hdr->deleted_space = 0;
-    kr_buf_markdirty(buf);
 }
 
-static __always_inline KrTupleInfo* kr_bucket_find_key(KrBuf* buf, KrSlice* key)
+static __always_inline KrTupleInfo* kr_bucket_find_key(char* data, KrSlice* key)
 {
-    char* data = buf->data;
     KrBucketHdr* hdr = (KrBucketHdr*)data;
-    KrTupleInfo* infos = kr_tuple_info_array(buf);
+    KrTupleInfo* infos = kr_tuple_info_array(data);
     int i;
 
     for (i = 0; i < hdr->count; i++) {
@@ -72,67 +67,61 @@ static __always_inline KrTupleInfo* kr_bucket_find_key(KrBuf* buf, KrSlice* key)
  * puts/deletes, and if we run out of data space, and we really want
  * to insert into this bucket, we can do a defrag to recliam space.
  */
-static __always_inline void __kr_bucket_del(KrBuf* buf, KrTupleInfo* to_del)
+static __always_inline void __kr_bucket_del(char* data, KrTupleInfo* to_del)
 {
-    KrBucketHdr* hdr = (KrBucketHdr*)buf->data;
-    KrTupleInfo* last = kr_tuple_info_array(buf) + hdr->count - 1;
+    KrBucketHdr* hdr = (KrBucketHdr*)data;
+    KrTupleInfo* last = kr_tuple_info_array(data) + hdr->count - 1;
 
     hdr->count--;
     hdr->deleted_space += to_del->klen + to_del->vlen;
     *to_del = *last;
 }
 
-int kr_bucket_del(KrBuf* buf, KrSlice* key)
+int kr_bucket_del(char* data, KrSlice* key)
 {
-    KrTupleInfo* to_del = kr_bucket_find_key(buf, key);
+    KrTupleInfo* to_del = kr_bucket_find_key(data, key);
 
     /* key isn't even in this bucket? */
     if (unlikely(!to_del))
         return -KR_ENOTFOUND;
 
-    __kr_bucket_del(buf, to_del);
-    kr_buf_markdirty(buf);
-
+    __kr_bucket_del(data, to_del);
     return 0;
 }
 
-int kr_bucket_get(KrBuf* buf, KrSlice key, KrSlice* val)
+int kr_bucket_get(char* data, KrSlice key, KrSlice* val)
 {
-    KrTupleInfo* found = kr_bucket_find_key(buf, &key);
+    KrTupleInfo* found = kr_bucket_find_key(data, &key);
 
     if (unlikely(!found))
         return -KR_ENOTFOUND;
 
     val->size = found->vlen;
-    val->data = (char *)buf->data + found->offs + found->klen;
+    val->data = data + found->offs + found->klen;
     return 0;
 }
 
-int kr_bucket_add(KrBuf* buf, KrSlice key, KrSlice val)
+int kr_bucket_add(char* data, KrSlice key, KrSlice val)
 {
-    char* data = buf->data;
     KrBucketHdr* hdr = (KrBucketHdr*)data;
     u16 kvlen = key.size + val.size;
     u16 freespace;
-    KrTupleInfo* tuple = kr_bucket_find_key(buf, &key);
+    KrTupleInfo* tuple = kr_bucket_find_key(data, &key);
 
     //printk(KERN_INFO "header: count %d  upper %d  lower %d\n", hdr->count, hdr->upper, hdr->lower);
 
     if (tuple) {
         /* if the entry already exists, just delete it before re-inserting */
-        __kr_bucket_del(buf, tuple);
+        __kr_bucket_del(data, tuple);
     }
 
-    freespace = kr_bucket_freespace(buf);
+    freespace = kr_bucket_freespace(data);
     //printk(KERN_INFO "freespace: %d\n", freespace);
     if (unlikely(freespace < kvlen + sizeof(KrTupleInfo))) {
         /* no space left in this bucket */
         printk(KERN_INFO "No space left in bucket! Not implemented\n");
         return 0;
     }
-
-    if (hdr->count > 0)
-        buf->dev->n_dbl++;
 
     /* do insert */
     tuple = (KrTupleInfo*)(data + sizeof(KrBucketHdr) + hdr->count * sizeof(KrTupleInfo));
@@ -147,8 +136,6 @@ int kr_bucket_add(KrBuf* buf, KrSlice key, KrSlice val)
 
     hdr->count++;
     hdr->data_off -= kvlen;
-
-    kr_buf_markdirty(buf);
 
     return 0;
 }

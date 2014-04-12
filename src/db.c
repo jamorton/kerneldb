@@ -6,6 +6,20 @@
 #define MAX_DB 256
 static KrDb databases[MAX_DB];
 
+/**
+ * Bucket size and block size are individually configurable, so we support
+ * multiple buckets per block.
+ */
+
+/* Get the block a bucket number should reside at  */
+#define kr_bucket_block(b) ((b) / KR_BUCKETS_PER_BLOCK + 1)
+
+/* Get a bucket data ptr from a buffer and bucket number */
+static __always_inline char* kr_bucket_data(KrBuf* buf, u64 bkt_no)
+{
+    return (char*)buf->data + (bkt_no % KR_BUCKETS_PER_BLOCK) * KR_BUCKET_SIZE;
+}
+
 /*-----------------------------------------------------------*/
 /* DB open, close, and setup                                 */
 /*-----------------------------------------------------------*/
@@ -31,6 +45,7 @@ static void kr_db_init(KrDb* db)
 {
     int i;
     KrBuf* buf;
+    char* data;
 
     db->sb_buf = kr_buf_read(db->dev, 0);
     db->sb = (KrSuperBlock*)db->sb_buf->data;
@@ -43,12 +58,15 @@ static void kr_db_init(KrDb* db)
         db->sb->magic = KR_SUPERBLOCK_MAGIC;
         db->sb->opened = 0;
         db->sb->num_entries = 0;
-        db->sb->i = 18;
+        db->sb->i = 20;
         db->sb->num_buckets = 1 << db->sb->i;
 
+        /* initialize the buckets */
         for (i = 0; i < db->sb->num_buckets; i++) {
-            buf = kr_buf_alloc(db->dev, i + 1);
-            kr_bucket_init(buf);
+            buf = kr_buf_alloc(db->dev, kr_bucket_block(i));
+            data = kr_bucket_data(buf, i);
+            kr_bucket_init(data);
+            kr_buf_markdirty(buf);
             kr_buf_unpin(buf);
         }
     }
@@ -77,7 +95,7 @@ int kr_db_open(KrDb** db, const char * path) {
     /* no existing db found... make a new one */
     strncpy(empty->path, path, 255);
     empty->refcnt = 1;
-    empty->dev = kr_device_create(path, 2048*128);
+    empty->dev = kr_device_create(path, 2048*64+1);
     *db = empty;
 
     kr_db_init(*db);
@@ -102,7 +120,7 @@ int kr_db_close (KrDb * db)
 
 /* returns a KrBuf for the bucket that the given key should
    reside at */
-static __always_inline u64 kr_bucket_location(KrSuperBlock* sb, KrSlice key)
+static __always_inline u64 kr_get_bucket_num(KrSuperBlock* sb, KrSlice key)
 {
     kr_hash hash = kr_slice_hash(key);
     kr_block b = hash & ((1 << sb->i) - 1); /* last i bits */
@@ -110,31 +128,43 @@ static __always_inline u64 kr_bucket_location(KrSuperBlock* sb, KrSlice key)
     if (unlikely(b >= sb->num_buckets))
         b ^= (1 << (sb->i - 1)); /* unset the top bit */
 
-    return b + 1;
+    return b;
 }
 
 int kr_db_put (KrDb * db, KrSlice key, KrSlice val)
 {
-    u64 loc = kr_bucket_location(db->sb, key);
-    KrBuf* bucket = kr_buf_read(db->dev, loc);
+    /* hash the key to get the bucket number */
+    u64 bkt_no = kr_get_bucket_num(db->sb, key);
+
+    /* read the buffer that the bucket resides at */
+    KrBuf* buf = kr_buf_read(db->dev, kr_bucket_block(bkt_no));
+
+    /* get the pointer to the bucket's data from the buffer */
+    char* data = kr_bucket_data(buf, bkt_no);
+
     int ret;
-    if (!bucket)
+
+    if (!buf)
         return -KR_ENOMEM;
-    ret =  kr_bucket_add(bucket, key, val);
-    kr_buf_unpin(bucket);
+
+    ret =  kr_bucket_add(data, key, val);
+    kr_buf_markdirty(buf);
+    kr_buf_unpin(buf);
     return ret;
 }
 
 int kr_db_get (KrDb * db, KrSlice key, KrSlice * out)
 {
-    u64 loc = kr_bucket_location(db->sb, key);
-    KrBuf* bucket = kr_buf_read(db->dev, loc);
+    /* as above */
+    u64 bkt_no = kr_get_bucket_num(db->sb, key);
+    KrBuf* buf = kr_buf_read(db->dev, kr_bucket_block(bkt_no));
+    char* data = kr_bucket_data(buf, bkt_no);
     KrSlice val;
 
-    if (!bucket)
+    if (!buf)
         return -KR_ENOMEM;
 
-    kr_bucket_get(bucket, key, &val);
-    kr_buf_unpin(bucket);
+    kr_bucket_get(data, key, &val);
+    kr_buf_unpin(buf);
     return 0;
 }
