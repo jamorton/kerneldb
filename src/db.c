@@ -147,7 +147,11 @@ int kr_db_put (KrDb * db, KrSlice key, KrSlice val)
     if (!buf)
         return -KR_ENOMEM;
 
-    ret =  kr_bucket_add(data, key, val);
+    ret = kr_bucket_add(data, key, val);
+
+    if (ret == 0)
+        db->sb->num_entries++;
+
     kr_buf_markdirty(buf);
     kr_buf_unpin(buf);
     return ret;

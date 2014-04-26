@@ -42,7 +42,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
         KrSlice key = { *(uint64_t *)data, data + 8 };
         kr_dataptr valstart = data + 8 + key.size;
         KrSlice val = { *(uint64_t *)valstart, valstart + 8 };
-        printk(KERN_INFO "KR_COMMAND_PUT: key %.*s\n, data sz: %llu\n",  (int)key.size, key.data, val.size);
+        printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, data sz: %llu\n",  (int)key.size, key.data, val.size);
         kr_db_put(user->db, key, val);
         break;
     }

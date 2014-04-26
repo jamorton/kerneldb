@@ -107,20 +107,20 @@ int kr_bucket_add(char* data, KrSlice key, KrSlice val)
     u16 kvlen = key.size + val.size;
     u16 freespace;
     KrTupleInfo* tuple = kr_bucket_find_key(data, &key);
-
-    //printk(KERN_INFO "header: count %d  upper %d  lower %d\n", hdr->count, hdr->upper, hdr->lower);
+    int ret = 0;
 
     if (tuple) {
         /* if the entry already exists, just delete it before re-inserting */
         __kr_bucket_del(data, tuple);
+        ret = 1;
     }
 
     freespace = kr_bucket_freespace(data);
-    //printk(KERN_INFO "freespace: %d\n", freespace);
+
     if (unlikely(freespace < kvlen + sizeof(KrTupleInfo))) {
         /* no space left in this bucket */
         printk(KERN_INFO "No space left in bucket! Not implemented\n");
-        return 0;
+        return -1;
     }
 
     /* do insert */
@@ -137,5 +137,5 @@ int kr_bucket_add(char* data, KrSlice key, KrSlice val)
     hdr->count++;
     hdr->data_off -= kvlen;
 
-    return 0;
+    return ret;
 }
