@@ -3,12 +3,12 @@
 # Configuration
 #-----------------------------------------------------------
 
-MODULE_SOURCES = src/module.c src/user.c src/db.c src/io.c src/bucket.c src/bench.c
+MODULE_SOURCES = src/module.c src/db.c src/io.c src/bucket.c src/bench.c
 MODULE_OUT = bin/krdb.ko
 
 CLIENT_SOURCES = client/conn.c client/client.c client/main.c
 CLIENT_OUT = bin/krcl
-CLIENT_CFLAGS = -Wall --std=c99 -Iinclude $(shell pkg-config --cflags --libs libnl-3.0)
+CLIENT_CFLAGS = -Wall -Iinclude $(shell pkg-config --cflags --libs libnl-3.0)
 
 #-----------------------------------------------------------
 # Build
