@@ -5,69 +5,114 @@
 
 #include "kr_common.h"
 #include "internal.h"
-#include "user.h"
 #include "db.h"
 
 static struct sock * kr_nlsock = NULL;
 
+static void kr_nl_send(int pid, int seq, int cmd, void* data, size_t len)
+{
+    struct sk_buff* skb = nlmsg_new(len, GFP_KERNEL);
+    struct nlmsghdr* nlh = nlmsg_put(skb, pid, seq, cmd, len, 0);
+    char* dest = nlmsg_data(nlh);
+    memcpy(dest, data, len);
+    nlmsg_unicast(kr_nlsock, skb, pid);
+}
+
+/**
+ * Called by kernel for each new netlink socket message receieved
+ */
 static void kr_nl_recv(struct sk_buff *skb) {
+
     struct nlmsghdr * nlh = (struct nlmsghdr *)skb->data;
     kr_dataptr data = nlmsg_data(nlh);
-    //int size = nlmsg_len(nlh);
+
+    int size = nlmsg_len(nlh);
     int pid = nlh->nlmsg_pid;
+    int seq = nlh->nlmsg_seq;
+
+    KrDb* db = NULL; /* used differently by all switch cases */
+
+    /* helper macros for reading message data */
+#define NEXT_U8()  (*(u8* )((data += sizeof(u8))  - sizeof(u8)))
+#define NEXT_U64() (*(u64*)((data += sizeof(u64)) - sizeof(u64)))
+#define NEXT_PTR(len) ((data += len) - len)
+#define GET_DB() do {                                       \
+        db = kr_db_from_id(NEXT_U8());                      \
+        if (!db) {                                          \
+            printk(KERN_INFO "GET_DB WITH INVALID ID\n");   \
+            return;                                         \
+        }                                                   \
+    } while (0)
+
+    /* -------------- command type switch */
 
     switch (nlh->nlmsg_type) {
 
+        //--------------------------------------------------
+        // Command: OPEN
+        //--------------------------------------------------
     case KR_COMMAND_OPEN: {
         const char * path = (const char *)data;
-        KrUser * user = kr_user_get(pid);
         printk(KERN_INFO "KR_COMMAND_OPEN - \"%s\"\n", path);
-        if (user->db != NULL)
-            ; /* user already has a DB open... */
-        kr_db_open(&user->db, path);
+        kr_db_open(&db, path);
+        kr_nl_send(pid, seq, KR_COMMAND_OPEN, &db->id, sizeof(db->id));
         break;
     }
 
+        //--------------------------------------------------
+        // Command: Close
+        //--------------------------------------------------
     case KR_COMMAND_CLOSE: {
-        KrUser * user = kr_user_get(pid);
+        GET_DB();
         printk(KERN_INFO "KR_COMMAND_CLOSE\n");
-        if (user->db == NULL)
-            ; /* no db to close... */
-        kr_db_close(user->db);
+        kr_db_close(db);
         break;
     }
 
+        //--------------------------------------------------
+        // Command: PUT
+        //--------------------------------------------------
     case KR_COMMAND_PUT: {
-        KrUser * user = kr_user_get(pid);
-        KrSlice key = { *(uint64_t *)data, data + 8 };
-        kr_dataptr valstart = data + 8 + key.size;
-        KrSlice val = { *(uint64_t *)valstart, valstart + 8 };
+
+        u64 sz;
+        GET_DB();
+
+        sz = NEXT_U64();
+        KrSlice key = { sz, NEXT_PTR(sz) };
+        sz = NEXT_U64();
+        KrSlice val = { sz, NEXT_PTR(sz) };
         printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, data sz: %llu\n",  (int)key.size, key.data, val.size);
-        kr_db_put(user->db, key, val);
+        kr_db_put(db, key, val);
         break;
     }
 
+        //--------------------------------------------------
+        // Command: GET
+        //--------------------------------------------------
     case KR_COMMAND_GET: {
-        KrUser * user = kr_user_get(pid);
+        GET_DB();
 
-        KrSlice val, key = { *(uint64_t *)data, data + 8 };
+        KrSlice val, key = { NEXT_U64(), data };
         printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n",  (int)key.size, key.data);
-        kr_db_get(user->db, key, &val);
+        kr_db_get(db, key, &val);
         // todo: send result
 
         break;
     }
 
+        //--------------------------------------------------
+        // Command: BENCH
+        //--------------------------------------------------
     case KR_COMMAND_BENCH: {
-        KrUser * user = kr_user_get(pid);
-
-        printk(KERN_INFO "Running kr_bench(\"%s\")...\n", user->db->path);
-        kr_bench(user->db);
+        GET_DB();
+        printk(KERN_INFO "Running kr_bench(\"%s\")...\n", db->path);
+        kr_bench(db);
         printk(KERN_INFO "...done.\n");
     }
 
     case KR_COMMAND_NOP:
     default:
+        printk(KERN_INFO "Received unknown command\n");
         break;
     }
 }
@@ -100,5 +145,5 @@ static void __exit kr_module_exit(void)
 module_init(kr_module_init)
 module_exit(kr_module_exit)
 
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("Dual MIT/GPL");
 MODULE_AUTHOR("UW-Madison");

@@ -13,13 +13,24 @@
 
 #include <netlink/netlink.h>
 
-struct KrClient {
+typedef struct KrClient {
     char * dev;
     struct nl_sock* sock;
-};
+    uint8_t db_id;
+    struct nl_msg* conn_msg;
+} KrClient;
 
-int conn_create  (KrClient* cl);
-int conn_destroy (KrClient* cl);
-int conn_send    (KrClient* cl, int cmd, void* data, size_t len);
+typedef struct KrMsg {
+    struct nl_msg* _nlmsg;
+    char* data;
+    size_t len;
+} KrMsg;
+
+int  conn_create     (KrClient* cl);
+int  conn_destroy    (KrClient* cl);
+int  conn_send       (KrClient* cl, int cmd, void* data, size_t len);
+
+int  conn_wait_reply (KrClient* cl, KrMsg* msg_out);
+void conn_msg_done   (KrMsg* msg);
 
 #endif

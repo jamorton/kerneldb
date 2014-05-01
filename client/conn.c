@@ -4,11 +4,54 @@
 
 #include "internal.h"
 
+#include <netlink/msg.h>
+
+static int conn_recv_cb(struct nl_msg* msg, void* arg)
+{
+    KrClient* client = (KrClient*)arg;
+    /* add a reference to the message and store it for processing
+       by conn_wait_reply */
+    nlmsg_get(msg);
+    client->conn_msg = msg;
+    return NL_OK;
+}
+
 int conn_create(KrClient * cl)
 {
     cl->sock = nl_socket_alloc();
     nl_connect(cl->sock, KR_NETLINK_USER);
+    nl_socket_modify_cb(cl->sock, NL_CB_VALID, NL_CB_CUSTOM, conn_recv_cb,
+        (void*)cl);
+    cl->conn_msg = NULL;
     return 0;
+}
+
+int conn_wait_reply(KrClient* cl, KrMsg* msg_out)
+{
+    /* libnl will call conn_recv_cb (above) for each new message, which will
+       store the retrieved message in cl->conn_msg temporarily. We construct
+       the KrMsg using that here */
+
+    nl_recvmsgs_default(cl->sock);
+    if (!cl->conn_msg)
+        return -1;
+
+    struct nl_msg* nlmsg = cl->conn_msg;
+    cl->conn_msg = NULL;
+
+    msg_out->_nlmsg = nlmsg;
+
+    struct nlmsghdr* hdr = nlmsg_hdr(nlmsg);
+    msg_out->data = nlmsg_data(hdr);
+    msg_out->len = nlmsg_datalen(hdr);
+
+    printf("conn_wait_reply: New msg (size %zu)\n", msg_out->len);
+    return 0;
+}
+
+void conn_msg_done(KrMsg* msg)
+{
+    nlmsg_free(msg->_nlmsg);
 }
 
 int conn_destroy(KrClient * cl)
@@ -19,7 +62,6 @@ int conn_destroy(KrClient * cl)
 
 int conn_send (KrClient* cl, int cmd, void* data, size_t len)
 {
-    int flags = (cmd == KR_COMMAND_GET) ? NLM_F_REQUEST : 0;
-    nl_send_simple(cl->sock, cmd, flags, data, len);
+    nl_send_simple(cl->sock, cmd, 0, data, len);
     return 0;
 }

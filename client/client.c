@@ -4,7 +4,7 @@
 KrClient * kr_open(const char * dev)
 {
     KrClient * client = (KrClient *)malloc(sizeof(KrClient));
-
+    KrMsg msg;
 
     size_t len = strlen(dev);
     client->dev = malloc(len + 1);
@@ -12,8 +12,13 @@ KrClient * kr_open(const char * dev)
 
     printf("Creating connection...\n");
     conn_create(client);
+
     printf("Opening db \"%s\"...\n", client->dev);
     conn_send(client, KR_COMMAND_OPEN, client->dev, len + 1);
+
+    conn_wait_reply(client, &msg);
+    client->db_id = *(uint8_t*)msg.data;
+    conn_msg_done(&msg);
 
     return client;
 }
@@ -23,9 +28,10 @@ void kr_put(KrClient * client, size_t keysz, void* key, size_t valsz, void* val)
     printf("put: keysz %zu, key %s, valsz %zu, val %s\n", keysz, (char*)key, valsz, (char*) val);
     //build the message first
     //msg layout:  8byte key size followed by key data followed by 8byte val sz followed by val data
-    size_t msglen = 8 + keysz + 8 + valsz;
+    size_t msglen = 8 + keysz + 8 + valsz + 1;
     void* msgbgn = malloc(msglen);
-    void* msgcurr = msgbgn;
+    *(uint8_t*)msgbgn = client->db_id;
+    void* msgcurr = msgbgn + 1;
     memcpy(msgcurr, (char*)&keysz, 8);
     msgcurr += 8;
     memcpy(msgcurr, (char*)key, keysz);
@@ -40,10 +46,11 @@ void kr_put(KrClient * client, size_t keysz, void* key, size_t valsz, void* val)
 void kr_get(KrClient* client, size_t keysz, void* key, size_t* valszout, void** valout)
 {
     printf("get: keysz %zu, key %s\n", keysz, (char*) key);
-    size_t msglen = 8 + keysz;
+    size_t msglen = 8 + keysz + 1;
     void* msgbgn = malloc(msglen);
-    memcpy(msgbgn, (char*)&keysz, 8);
-    memcpy(msgbgn + 8, (char*)key, 8);
+    *(uint8_t*)msgbgn = client->db_id;
+    memcpy(msgbgn + 1, (char*)&keysz, 8);
+    memcpy(msgbgn + 1 + 8, (char*)key, 8);
 
     conn_send(client, KR_COMMAND_GET, msgbgn, msglen);
 }

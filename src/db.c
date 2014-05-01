@@ -3,7 +3,7 @@
 #include "io.h"
 #include "bucket.h"
 
-#define MAX_DB 256
+#define MAX_DB 16
 static KrDb databases[MAX_DB];
 
 /**
@@ -75,12 +75,14 @@ static void kr_db_init(KrDb* db)
 
 int kr_db_open(KrDb** db, const char * path) {
     KrDb * empty = NULL;
-    int i;
+    u32 i;
 
     /* try to find an existing DB with this path */
     for (i = 0; i < MAX_DB; i++) {
-        if (databases[i].refcnt == 0)
+        if (databases[i].refcnt == 0) {
             empty = &databases[i];
+            empty->id = i + 1;
+        }
         else if (strcmp(databases[i].path, path) == 0) {
             databases[i].refcnt++;
             *db = &databases[i];
@@ -94,14 +96,29 @@ int kr_db_open(KrDb** db, const char * path) {
 
     /* no existing db found... make a new one */
     strncpy(empty->path, path, 255);
-    empty->refcnt = 1;
-    empty->dev = kr_device_create(path, 2048*64+1);
-    *db = empty;
 
-    kr_db_init(*db);
-    printk(KERN_INFO "Opened DB %s (%llu entries)\n", path, (*db)->sb->num_entries);
+    empty->dev = kr_device_create(path, 2048*64+1);
+
+    if (!empty->dev)
+        return -1;
+
+    empty->refcnt = 1;
+    *db = empty;
+    kr_db_init(empty);
+    printk(KERN_INFO "Opened DB %s (%llu entries) with id %u\n",
+        path, empty->sb->num_entries, empty->id);
 
     return 0;
+}
+
+KrDb* kr_db_from_id(u8 id)
+{
+    printk(KERN_INFO "id %d\n", id);
+    if (id <= 0 || (uint)id > (uint)MAX_DB)
+        return NULL;
+    if (databases[id - 1].refcnt < 1)
+        return NULL;
+    return &databases[id - 1];
 }
 
 int kr_db_close (KrDb * db)
