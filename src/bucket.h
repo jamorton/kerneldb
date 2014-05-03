@@ -5,7 +5,7 @@
 #include "internal.h"
 #include "io.h"
 
-#define KR_BUCKET_SIZE (KR_BLOCK_SIZE/8)
+#define KR_BUCKET_SIZE (KR_BLOCK_SIZE/4)
 #define KR_BUCKETS_PER_BLOCK (KR_BLOCK_SIZE/KR_BUCKET_SIZE)
 
 struct KrBuf;

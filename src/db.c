@@ -59,7 +59,7 @@ static void kr_db_init(KrDb* db)
         db->sb->magic = KR_SUPERBLOCK_MAGIC;
         db->sb->opened = 0;
         db->sb->num_entries = 0;
-        db->sb->i = 20;
+        db->sb->i = 10;
         db->sb->num_buckets = 1 << db->sb->i;
 
         /* initialize the buckets */
