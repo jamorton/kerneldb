@@ -96,7 +96,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
         GET_DB();
         u64 size;
         KrSlice val, key = { NEXT_U64(), data };
-        printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n",  (int)key.size, key.data);
+        //printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n",  (int)key.size, key.data);
         kr_db_get(db, key, &outbuf, &size);
         *(u64 *)outbuf.data = size;
         kr_nl_send(pid, seq, KR_COMMAND_GET, outbuf.data, sizeof(u64) + size);
