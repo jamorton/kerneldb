@@ -6,6 +6,7 @@
 #include "kr_common.h"
 #include "internal.h"
 #include "db.h"
+#include "outbuf.h"
 
 static struct sock * kr_nlsock = NULL;
 
@@ -31,6 +32,8 @@ static void kr_nl_recv(struct sk_buff *skb) {
     int seq = nlh->nlmsg_seq;
 
     KrDb* db = NULL; /* used differently by all switch cases */
+
+    KrOutbuf outbuf = kr_outbuf(sizeof(u64));
 
     /* helper macros for reading message data */
 #define NEXT_U8()  (*(u8* )((data += sizeof(u8))  - sizeof(u8)))
@@ -91,12 +94,12 @@ static void kr_nl_recv(struct sk_buff *skb) {
         //--------------------------------------------------
     case KR_COMMAND_GET: {
         GET_DB();
-
+        u64 size;
         KrSlice val, key = { NEXT_U64(), data };
         printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n",  (int)key.size, key.data);
-        kr_db_get(db, key, &val);
-        // todo: send result
-
+        kr_db_get(db, key, &outbuf, &size);
+        *(u64 *)outbuf.data = size;
+        kr_nl_send(pid, seq, KR_COMMAND_GET, outbuf.data, sizeof(u64) + size);
         break;
     }
 

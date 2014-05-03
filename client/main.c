@@ -40,6 +40,13 @@ int main(int argc, char* argv[])
     else if (strcmp(argv[2], "put") == 0) {
         kr_put(client, strlen(argv[3]), argv[3], strlen(argv[4]), argv[4]);
     }
+    else if (strcmp(argv[2], "get") == 0) {
+        size_t len;
+        char * data;
+        kr_get(client, strlen(argv[3]), argv[3], &len, (void**)&data);
+        printf("get: %.*s\n", (int)len, data);
+        free(data);
+    }
     else
         exit_help();
 

@@ -2,6 +2,7 @@
 #include "db.h"
 #include "io.h"
 #include "bucket.h"
+#include "outbuf.h"
 
 #define MAX_DB 16
 static KrDb databases[MAX_DB];
@@ -174,18 +175,23 @@ int kr_db_put (KrDb * db, KrSlice key, KrSlice val)
     return ret;
 }
 
-int kr_db_get (KrDb * db, KrSlice key, KrSlice * out)
+int kr_db_get (KrDb * db, KrSlice key, KrOutbuf* outbuf, u64* size)
 {
     /* as above */
     u64 bkt_no = kr_get_bucket_num(db->sb, key);
     KrBuf* buf = kr_buf_read(db->dev, kr_bucket_block(bkt_no));
     char* data = kr_bucket_data(buf, bkt_no);
-    KrSlice val;
+    KrSlice tmp;
 
     if (!buf)
         return -KR_ENOMEM;
 
-    kr_bucket_get(data, key, &val);
+    kr_bucket_get(data, key, &tmp);
+
+    kr_outbuf_reserve_val(outbuf, tmp.size);
+    kr_outbuf_put(outbuf, tmp.data, tmp.size);
+    *size = tmp.size;
+
     kr_buf_unpin(buf);
     return 0;
 }

@@ -22,6 +22,8 @@ int conn_create(KrClient * cl)
     nl_connect(cl->sock, KR_NETLINK_USER);
     nl_socket_modify_cb(cl->sock, NL_CB_VALID, NL_CB_CUSTOM, conn_recv_cb,
         (void*)cl);
+    nl_socket_modify_cb(cl->sock, NL_CB_INVALID, NL_CB_VERBOSE, NULL, NULL);
+    nl_socket_disable_auto_ack(cl->sock);
     cl->conn_msg = NULL;
     return 0;
 }

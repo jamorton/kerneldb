@@ -4,6 +4,8 @@
 
 #include <linux/time.h>
 
+#if 0
+
 #define NUM_ENTRIES 1000000
 
 //calculate the difference between two times
@@ -53,4 +55,11 @@ void kr_bench(KrDb* db)
 
  fail:
     printk(KERN_ERR "bench: ERROR OCCURED\n");
+}
+
+#endif
+
+void kr_bench(KrDb* db)
+{
+
 }

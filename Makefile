@@ -8,7 +8,7 @@ MODULE_OUT = bin/krdb.ko
 
 CLIENT_SOURCES = client/conn.c client/client.c client/main.c
 CLIENT_OUT = bin/krcl
-CLIENT_CFLAGS = -Wall -Iinclude $(shell pkg-config --cflags --libs libnl-3.0)
+CLIENT_CFLAGS = -Wall -Iinclude $(shell pkg-config --cflags --libs libnl-3.0) -g
 
 #-----------------------------------------------------------
 # Build

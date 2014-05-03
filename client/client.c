@@ -50,9 +50,21 @@ void kr_get(KrClient* client, size_t keysz, void* key, size_t* valszout, void** 
     void* msgbgn = malloc(msglen);
     *(uint8_t*)msgbgn = client->db_id;
     memcpy(msgbgn + 1, (char*)&keysz, 8);
-    memcpy(msgbgn + 1 + 8, (char*)key, 8);
+    memcpy(msgbgn + 1 + 8, (char*)key, keysz);
 
     conn_send(client, KR_COMMAND_GET, msgbgn, msglen);
+
+    KrMsg msg;
+    conn_wait_reply(client, &msg);
+
+    uint64_t len = *(uint64_t*)msg.data;
+
+    *valszout = (size_t)len;
+    printf("len %zu\n", *valszout);
+    *valout = malloc(len);
+    memcpy(*valout, msg.data + 8, len);
+
+    conn_msg_done(&msg);
 }
 
 void kr_close(KrClient * client)

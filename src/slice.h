@@ -7,6 +7,10 @@ typedef struct KrSlice {
     kr_dataptr data;
 } KrSlice;
 
+/**
+ * Slice hashing (used as primary key hash)
+ */
+
 #define kr_rol(x, n) (((x)<<(n)) | ((x)>>(-(int)(n)&(8*sizeof(x)-1))))
 #define kr_getu32(p) (*(const u32 *)(p))
 
@@ -33,5 +37,7 @@ static __always_inline kr_hash kr_slice_hash(KrSlice key)
     h ^= b; h -= kr_rol(b, 16);
     return h;
 }
+
+
 
 #endif

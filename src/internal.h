@@ -5,6 +5,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 
 typedef const char * kr_dataptr;
 
