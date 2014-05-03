@@ -8,11 +8,11 @@ MODULE_OUT = bin/krdb.ko
 
 LIB_SOURCES = client/conn.c client/client.c
 LIB_OUT = bin/libkrdb.so
-LIB_CFLAGS = -Wall -Iinclude -O2 -fPIC -shared $(shell pkg-config --cflags --libs libnl-3.0)
+LIB_CFLAGS = -Wall -Iinclude -O3 -fPIC -shared -march=native $(shell pkg-config --cflags --libs libnl-3.0)
 
 CLIENT_SOURCES = client/main.c
 CLIENT_OUT = bin/krcl
-CLIENT_CFLAGS = -Wall -Iinclude -O2 -Lbin -lkrdb
+CLIENT_CFLAGS = -Wall -Iinclude -O3 -Lbin -lkrdb -march=native
 
 #-----------------------------------------------------------
 # Build
@@ -40,7 +40,9 @@ $(CLIENT_OUT): $(CLIENT_SOURCES)
 	gcc -o $@ $^ $(CLIENT_CFLAGS)
 
 install: $(MODULE_OUT) $(LIB_OUT) $(CLIENT_OUT)
+	lsmod | grep "krdb" && rmmod krdb
 	insmod $(MODULE_OUT)
+	install include/kr_client.h /usr/local/include
 	install $(LIB_OUT) /usr/local/lib
 	install $(CLIENT_OUT) /usr/local/bin
 	ldconfig
