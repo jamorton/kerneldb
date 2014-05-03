@@ -98,7 +98,7 @@ int kr_db_open(KrDb** db, const char * path) {
     /* no existing db found... make a new one */
     strncpy(empty->path, path, 255);
 
-    empty->dev = kr_device_create(path, 2048*64+1);
+    empty->dev = kr_device_create(path, 2048+1);
 
     if (!empty->dev)
         return -1;
