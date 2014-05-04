@@ -75,15 +75,13 @@ static void kr_nl_recv(struct sk_buff *skb) {
         // Command: PUT
         //--------------------------------------------------
     case KR_COMMAND_PUT: {
+        KrSlice key, val;
 
-        u64 sz;
         GET_DB();
-
-        sz = NEXT_U64();
-        KrSlice key = { sz, NEXT_PTR(sz) };
-        sz = NEXT_U64();
-        KrSlice val = { sz, NEXT_PTR(sz) };
-        //printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, data sz: %llu\n",  (int)key.size, key.data, val.size);
+        key.size = NEXT_U64();
+        key.data = NEXT_PTR(key.size);
+        val.size = NEXT_U64();
+        val.data = NEXT_PTR(val.size);
         kr_db_put(db, key, val);
         break;
     }
@@ -92,10 +90,11 @@ static void kr_nl_recv(struct sk_buff *skb) {
         // Command: GET
         //--------------------------------------------------
     case KR_COMMAND_GET: {
-        GET_DB();
         u64 size;
-        KrSlice val, key = { NEXT_U64(), data };
-        //printk(KERN_INFO "KR_COMMAND_GET: key %.*s\n",  (int)key.size, key.data);
+        KrSlice key;
+        GET_DB();
+        key.size = NEXT_U64();
+        key.data = NEXT_PTR(key.size);
         kr_db_get(db, key, &outbuf, &size);
         *(u64 *)outbuf.data = size;
         kr_nl_send(pid, seq, KR_COMMAND_GET, outbuf.data, sizeof(u64) + size);

@@ -159,8 +159,6 @@ int kr_db_put (KrDb * db, KrSlice key, KrSlice val)
     if (!buf)
         return -KR_ENOMEM;
 
-    printk(KERN_INFO "bkt %zu  ", bkt_no);
-
     ret = kr_bucket_add(data, key, val);
 
     if (ret == 0)
