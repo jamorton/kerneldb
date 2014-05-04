@@ -46,12 +46,11 @@ static __always_inline KrTupleInfo* kr_bucket_find_key(char* data, KrSlice* key)
     KrTupleInfo* infos = kr_tuple_info_array(data);
     int i;
 
-    for (i = 0; i < hdr->count; i++) {
-        //printk(KERN_INFO "info: offs %d  klen %d  vlen %d\n", infos[i].offs, infos[i].klen, infos[i].vlen);
-        if (infos[i].klen == key->size) {
-            if (memcmp(key->data, data + infos[i].offs, key->size) == 0)
-                return &infos[i];
-        }
+    /* search backwards so we find updated keys first */
+    for (i = (int)hdr->count - 1; i >= 0; --i) {
+        if (infos[i].klen == key->size &&
+            memcmp(key->data, data + infos[i].offs, key->size) == 0)
+          return &infos[i];
     }
     return NULL;
 }
@@ -70,11 +69,22 @@ static __always_inline KrTupleInfo* kr_bucket_find_key(char* data, KrSlice* key)
 static __always_inline void __kr_bucket_del(char* data, KrTupleInfo* to_del)
 {
     KrBucketHdr* hdr = (KrBucketHdr*)data;
-    KrTupleInfo* last = kr_tuple_info_array(data) + hdr->count - 1;
+    if (hdr->count == 0) {
+        printk("BAD");
+        return;
+    }
+    if (hdr->count == 1) {
+        hdr->count = 0;
+        hdr->deleted_space += to_del->klen + to_del->vlen;
+        return;
+    }
+    KrTupleInfo* last = kr_tuple_info_array(data) + (hdr->count - 1);
 
     hdr->count--;
     hdr->deleted_space += to_del->klen + to_del->vlen;
-    *to_del = *last;
+
+    if (to_del != last)
+        *to_del = *last;
 }
 
 int kr_bucket_del(char* data, KrSlice* key)
@@ -98,24 +108,17 @@ int kr_bucket_get(char* data, KrSlice key, KrSlice* val)
 
     val->size = found->vlen;
     val->data = data + found->offs + found->klen;
+    printk(KERN_INFO " get: val %d\n", val->size);
     return 0;
 }
 
 int kr_bucket_add(char* data, KrSlice key, KrSlice val)
 {
     KrBucketHdr* hdr = (KrBucketHdr*)data;
-    u16 kvlen = key.size + val.size;
-    u16 freespace;
-    KrTupleInfo* tuple = kr_bucket_find_key(data, &key);
+    KrTupleInfo* tuple;
     int ret = 0;
-
-    if (tuple) {
-        /* if the entry already exists, just delete it before re-inserting */
-        __kr_bucket_del(data, tuple);
-        ret = 1;
-    }
-
-    freespace = kr_bucket_freespace(data);
+    u16 kvlen = key.size + val.size;
+    u16 freespace = kr_bucket_freespace(data);
 
     if (unlikely(freespace < kvlen + sizeof(KrTupleInfo))) {
         /* no space left in this bucket */
@@ -124,15 +127,19 @@ int kr_bucket_add(char* data, KrSlice key, KrSlice val)
     }
 
     /* do insert */
-    tuple = (KrTupleInfo*)(data + sizeof(KrBucketHdr) + hdr->count * sizeof(KrTupleInfo));
+    tuple = kr_tuple_info_array(data) + hdr->count;
     tuple->klen = key.size;
     tuple->vlen = val.size;
     tuple->offs = hdr->data_off - kvlen;
 
-    //printk(KERN_INFO "new tuple: offs %d  klen %d  vlen %d\n", tuple->offs, tuple->klen, tuple->vlen);
+    printk("new tuple: offs %d  klen %d  vlen %d  free %d\n", tuple->offs, tuple->klen, tuple->vlen, freespace);
 
     memcpy(data + tuple->offs, key.data, key.size);
     memcpy(data + tuple->offs + key.size, val.data, val.size);
+
+    if (hdr->data_off < kvlen) {
+        printk(KERN_INFO " ERROR data_off (%u) < kvlen (%u)\n", (uint)hdr->data_off, (uint)kvlen);
+    }
 
     hdr->count++;
     hdr->data_off -= kvlen;

@@ -40,7 +40,7 @@ $(CLIENT_OUT): $(CLIENT_SOURCES)
 	gcc -o $@ $^ $(CLIENT_CFLAGS)
 
 install: $(MODULE_OUT) $(LIB_OUT) $(CLIENT_OUT)
-	lsmod | grep "krdb" && rmmod krdb
+	(lsmod | grep "krdb" && rmmod krdb) || true
 	insmod $(MODULE_OUT)
 	install include/kr_client.h /usr/local/include
 	install $(LIB_OUT) /usr/local/lib

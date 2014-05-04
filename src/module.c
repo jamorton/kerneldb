@@ -67,8 +67,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
         //--------------------------------------------------
     case KR_COMMAND_CLOSE: {
         GET_DB();
-        printk(KERN_INFO "KR_COMMAND_CLOSE\n");
-        kr_db_close(db);
+        //kr_db_close(db);
         break;
     }
 
@@ -84,7 +83,7 @@ static void kr_nl_recv(struct sk_buff *skb) {
         KrSlice key = { sz, NEXT_PTR(sz) };
         sz = NEXT_U64();
         KrSlice val = { sz, NEXT_PTR(sz) };
-        printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, data sz: %llu\n",  (int)key.size, key.data, val.size);
+        //printk(KERN_INFO "KR_COMMAND_PUT: key %.*s, data sz: %llu\n",  (int)key.size, key.data, val.size);
         kr_db_put(db, key, val);
         break;
     }

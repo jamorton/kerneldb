@@ -47,7 +47,6 @@ int conn_wait_reply(KrClient* cl, KrMsg* msg_out)
     msg_out->data = nlmsg_data(hdr);
     msg_out->len = nlmsg_datalen(hdr);
 
-    printf("conn_wait_reply: New msg (size %zu)\n", msg_out->len);
     return 0;
 }
 

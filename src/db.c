@@ -59,8 +59,7 @@ static void kr_db_init(KrDb* db)
         db->sb->magic = KR_SUPERBLOCK_MAGIC;
         db->sb->opened = 0;
         db->sb->num_entries = 0;
-        db->sb->i = 10;
-        db->sb->num_buckets = 1 << db->sb->i;
+        db->sb->num_buckets = 1024;
 
         /* initialize the buckets */
         for (i = 0; i < db->sb->num_buckets; i++) {
@@ -114,7 +113,6 @@ int kr_db_open(KrDb** db, const char * path) {
 
 KrDb* kr_db_from_id(u8 id)
 {
-    printk(KERN_INFO "id %d\n", id);
     if (id <= 0 || (uint)id > (uint)MAX_DB)
         return NULL;
     if (databases[id - 1].refcnt < 1)
@@ -141,11 +139,7 @@ int kr_db_close (KrDb * db)
 static __always_inline u64 kr_get_bucket_num(KrSuperBlock* sb, KrSlice key)
 {
     kr_hash hash = kr_slice_hash(key);
-    kr_block b = hash & ((1 << sb->i) - 1); /* last i bits */
-
-    if (unlikely(b >= sb->num_buckets))
-        b ^= (1 << (sb->i - 1)); /* unset the top bit */
-
+    kr_block b = hash & (sb->num_buckets - 1); /* last i bits */
     return b;
 }
 
@@ -164,6 +158,8 @@ int kr_db_put (KrDb * db, KrSlice key, KrSlice val)
 
     if (!buf)
         return -KR_ENOMEM;
+
+    printk(KERN_INFO "bkt %zu  ", bkt_no);
 
     ret = kr_bucket_add(data, key, val);
 
@@ -186,7 +182,10 @@ int kr_db_get (KrDb * db, KrSlice key, KrOutbuf* outbuf, u64* size)
     if (!buf)
         return -KR_ENOMEM;
 
-    kr_bucket_get(data, key, &tmp);
+    if (kr_bucket_get(data, key, &tmp) < 0) {
+        printk(KERN_INFO " KEY NOT FOUND\n");
+        return -KR_ENOTFOUND;
+    }
 
     kr_outbuf_reserve_val(outbuf, tmp.size);
     kr_outbuf_put(outbuf, tmp.data, tmp.size);
