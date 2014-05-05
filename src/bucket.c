@@ -44,15 +44,37 @@ static __always_inline KrTupleInfo* kr_bucket_find_key(char* data, KrSlice* key)
 {
     KrBucketHdr* hdr = (KrBucketHdr*)data;
     KrTupleInfo* infos = kr_tuple_info_array(data);
-    int i;
+    uint i;
 
     /* search backwards so we find updated keys first */
-    for (i = (int)hdr->count - 1; i >= 0; --i) {
+    for (i = 0; i < hdr->count; i++) {
         if (infos[i].klen == key->size &&
             memcmp(key->data, data + infos[i].offs, key->size) == 0)
           return &infos[i];
     }
     return NULL;
+}
+
+static __always_inline void kr_bucket_defrag(char* data)
+{
+    KrBucketHdr* hdr = (KrBucketHdr*)data;
+    KrTupleInfo* infos = kr_tuple_info_array(data);
+    uint i;
+    u16 cur_off = KR_BUCKET_SIZE;
+    char* tmp = kmalloc(KR_BUCKET_SIZE, GFP_KERNEL);
+
+    for (i = 0; i < hdr->count; i++) {
+        u16 len = infos[i].klen + infos[i].vlen;
+        cur_off -= len;
+        memcpy(tmp + cur_off, data + infos[i].offs, len);
+        infos[i].offs = cur_off;
+    }
+
+    memcpy(data + cur_off, tmp + cur_off, KR_BUCKET_SIZE - cur_off);
+    kfree(tmp);
+
+    hdr->deleted_space = 0;
+    hdr->data_off = cur_off;
 }
 
 /**
@@ -73,11 +95,6 @@ static __always_inline void __kr_bucket_del(char* data, KrTupleInfo* to_del)
 
     if (hdr->count == 0) {
         printk("BAD");
-        return;
-    }
-    if (hdr->count == 1) {
-        hdr->count = 0;
-        hdr->deleted_space += to_del->klen + to_del->vlen;
         return;
     }
 
@@ -117,15 +134,20 @@ int kr_bucket_get(char* data, KrSlice key, KrSlice* val)
 int kr_bucket_add(char* data, KrSlice key, KrSlice val)
 {
     KrBucketHdr* hdr = (KrBucketHdr*)data;
-    KrTupleInfo* tuple;
     int ret = 0;
     u16 kvlen = key.size + val.size;
     u16 freespace = kr_bucket_freespace(data);
 
+    KrTupleInfo* tuple = kr_bucket_find_key(data, &key);
+
+    if (tuple) {
+        __kr_bucket_del(data, tuple);
+        ret = 1;
+    }
+
     if (unlikely(freespace < kvlen + sizeof(KrTupleInfo))) {
         /* no space left in this bucket */
-        printk(KERN_INFO "No space left in bucket! Not implemented\n");
-        return -1;
+        kr_bucket_defrag(data);
     }
 
     /* do insert */
